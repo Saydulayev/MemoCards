@@ -13,7 +13,8 @@ struct CardView: View {
 
     @State private var offset = CGSize.zero
     @State private var isShowingAnswer = false
-    
+    @State private var draggedRight = false
+
     let card: Card
     var removal: (() -> Void)? = nil
 
@@ -23,15 +24,13 @@ struct CardView: View {
                 .fill(
                     accessibilityDifferentiateWithoutColor
                         ? .white
-                        : .white
-                            .opacity(1 - Double(abs(offset.width / 50)))
-
+                        : .white.opacity(1 - Double(abs(offset.width / 50)))
                 )
                 .background(
                     accessibilityDifferentiateWithoutColor
                         ? nil
                         : RoundedRectangle(cornerRadius: 25)
-                            .fill(offset.width > 0 ? .green : .red)
+                            .fill((offset.width > 0 || draggedRight) ? .green : .red)
                 )
                 .shadow(radius: 10)
 
@@ -44,7 +43,6 @@ struct CardView: View {
                     Text(card.prompt)
                         .font(.largeTitle)
                         .foregroundStyle(.black)
-
                     if isShowingAnswer {
                         Text(card.answer)
                             .font(.title)
@@ -63,13 +61,17 @@ struct CardView: View {
         .gesture(
             DragGesture()
                 .onChanged { gesture in
-                        offset = gesture.translation
+                    offset = gesture.translation
+                    draggedRight = gesture.translation.width > 0
                 }
                 .onEnded { _ in
                     if abs(offset.width) > 100 {
                         removal?()
                     } else {
-                            offset = .zero
+                        offset = .zero
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            draggedRight = false
+                        }
                     }
                 }
         )
