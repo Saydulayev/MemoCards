@@ -5,32 +5,45 @@
 //  Created by Saydulayev on 29.01.25.
 //
 
+
 import SwiftUI
+
+extension Shape {
+    func fill(using offset: CGSize) -> some View {
+        if offset.width == 0 {
+            self.fill(.white)
+        } else if offset.width < 0 {
+            self.fill(.red)
+        } else {
+            self.fill(.green)
+        }
+    }
+}
+
 
 struct CardView: View {
     @Environment(\.accessibilityDifferentiateWithoutColor) var accessibilityDifferentiateWithoutColor
     @Environment(\.accessibilityVoiceOverEnabled) var accessibilityVoiceOverEnabled
-
-    @State private var offset = CGSize.zero
-    @State private var isShowingAnswer = false
-    @State private var draggedRight = false
-
     let card: Card
-    var removal: (() -> Void)? = nil
+    var removal: ((Bool) -> Void)? = nil
+    @State private var isShowingAnswer = false
+    @State private var offset = CGSize.zero
 
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 25)
                 .fill(
                     accessibilityDifferentiateWithoutColor
-                        ? .white
-                        : .white.opacity(1 - Double(abs(offset.width / 50)))
+                    ? .white
+                    : .white
+                        .opacity(1 - Double(abs(offset.width / 50)))
                 )
+                .accessibilityAddTraits(.isButton)
                 .background(
                     accessibilityDifferentiateWithoutColor
-                        ? nil
-                        : RoundedRectangle(cornerRadius: 25)
-                            .fill((offset.width > 0 || draggedRight) ? .green : .red)
+                    ? nil
+                    : RoundedRectangle(cornerRadius: 25)
+                        .fill(using: offset)
                 )
                 .shadow(radius: 10)
 
@@ -41,8 +54,9 @@ struct CardView: View {
                         .foregroundStyle(.black)
                 } else {
                     Text(card.prompt)
-                        .font(.largeTitle)
+                        .font(.title)
                         .foregroundStyle(.black)
+                    
                     if isShowingAnswer {
                         Text(card.answer)
                             .font(.title)
@@ -57,24 +71,28 @@ struct CardView: View {
         .rotationEffect(.degrees(offset.width / 5.0))
         .offset(x: offset.width * 5)
         .opacity(2 - Double(abs(offset.width / 50)))
-        .accessibilityAddTraits(.isButton)
         .gesture(
             DragGesture()
                 .onChanged { gesture in
                     offset = gesture.translation
-                    draggedRight = gesture.translation.width > 0
                 }
                 .onEnded { _ in
-                    if abs(offset.width) > 100 {
-                        removal?()
-                    } else {
-                        offset = .zero
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                            draggedRight = false
+                    if abs(offset.width) < 100 {
+                        withAnimation {
+                            offset = .zero
+                        }
+                    } else if offset.width > 100 {
+                        removal?(false)
+                    } else if offset.width < -100 {
+                        removal?(true)
+                        
+                        withAnimation {
+                            offset = .zero
                         }
                     }
                 }
         )
+
         .onTapGesture {
             isShowingAnswer.toggle()
         }
@@ -82,6 +100,8 @@ struct CardView: View {
     }
 }
 
+
 #Preview {
     CardView(card: .example)
 }
+
