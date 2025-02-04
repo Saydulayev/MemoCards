@@ -60,7 +60,7 @@ struct CardView: View {
                     if isShowingAnswer {
                         Text(card.answer)
                             .font(.title)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(.black.opacity(0.5))
                     }
                 }
             }
