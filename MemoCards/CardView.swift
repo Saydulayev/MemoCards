@@ -20,7 +20,6 @@ extension Shape {
     }
 }
 
-
 struct CardView: View {
     @Environment(\.accessibilityDifferentiateWithoutColor) var accessibilityDifferentiateWithoutColor
     @Environment(\.accessibilityVoiceOverEnabled) var accessibilityVoiceOverEnabled
@@ -85,14 +84,12 @@ struct CardView: View {
                         removal?(false)
                     } else if offset.width < -100 {
                         removal?(true)
-                        
                         withAnimation {
                             offset = .zero
                         }
                     }
                 }
         )
-
         .onTapGesture {
             isShowingAnswer.toggle()
         }
@@ -100,8 +97,8 @@ struct CardView: View {
     }
 }
 
-
 #Preview {
     CardView(card: .example)
 }
+
 

@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import SwiftData
 
 extension View {
     func stacked(at position: Int, in total: Int) -> some View {
@@ -14,13 +15,17 @@ extension View {
     }
 }
 
-
 struct ContentView: View {
     @Environment(\.accessibilityDifferentiateWithoutColor) var accessibilityDifferentiateWithoutColor
     @Environment(\.accessibilityVoiceOverEnabled) var accessibilityVoiceOverEnabled
     @Environment(\.scenePhase) var scenePhase
+    @Environment(\.modelContext) private var modelContext
+
+    // Выбираем только активные карточки (isActive == true) и сортируем их по order.
+    @Query(filter: #Predicate { $0.isActive == true }, sort: \Card.order, order: .forward)
+    private var activeCards: [Card]
+    
     @State private var isActive = true
-    @State private var cards = [Card]()
     @State private var timeRemaining = 100
     @State private var showingEditScreen = false
     let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
@@ -30,6 +35,7 @@ struct ContentView: View {
             Image(decorative: "background")
                 .resizable()
                 .ignoresSafeArea()
+            
             VStack {
                 Text("Time: \(timeRemaining)")
                     .font(.largeTitle)
@@ -37,42 +43,43 @@ struct ContentView: View {
                     .padding(.horizontal, 20)
                     .padding(.vertical, 5)
                     .background(.black.opacity(0.75))
-                    .clipShape(.capsule)
-
+                    .clipShape(Capsule())
+                
                 ZStack {
-                    ForEach(Array(cards.enumerated()), id: \.element) { item in
-                        CardView(card: item.element) { reinsert in
+                    ForEach(Array(activeCards.enumerated()), id: \.element) { index, card in
+                        CardView(card: card) { reinsert in
                             withAnimation {
-                                removeCard(at: item.offset, reinsert: reinsert)
+                                removeCard(at: index, reinsert: reinsert)
                             }
                         }
-                        .stacked(at: item.offset, in: cards.count)
-                        .allowsHitTesting(item.offset == cards.count - 1)
-                        .accessibilityHidden(item.offset < cards.count - 1)
+                        .stacked(at: index, in: activeCards.count)
+                        // Только верхняя карточка интерактивна
+                        .allowsHitTesting(index == activeCards.count - 1)
+                        .accessibilityHidden(index < activeCards.count - 1)
                     }
                 }
                 .allowsHitTesting(timeRemaining > 0)
-
-                if cards.isEmpty {
+                
+                if activeCards.isEmpty {
                     Button("Start Again", action: resetCards)
                         .padding()
                         .background(.white)
                         .foregroundStyle(.black)
-                        .clipShape(.capsule)
+                        .clipShape(Capsule())
                 }
             }
-
+            
             VStack {
                 HStack {
                     Spacer()
-
+                    
                     Button {
                         showingEditScreen = true
                     } label: {
                         Image(systemName: "plus.circle")
                             .padding()
                             .background(.black.opacity(0.7))
-                            .clipShape(.circle)
+                            .clipShape(Circle())
                     }
                 }
                 Spacer()
@@ -80,36 +87,35 @@ struct ContentView: View {
             .foregroundStyle(.white)
             .font(.largeTitle)
             .padding()
-
+            
             if accessibilityDifferentiateWithoutColor || accessibilityVoiceOverEnabled {
                 VStack {
                     Spacer()
-
                     HStack {
                         Button {
                             withAnimation {
-                                removeCard(at: cards.count - 1, reinsert: true)
+                                removeCard(at: activeCards.count - 1, reinsert: true)
                             }
                         } label: {
-                            Image(systemName: "xmark.cirlce")
+                            Image(systemName: "xmark.circle")
                                 .padding()
                                 .background(.black.opacity(0.7))
-                                .clipShape(.circle)
+                                .clipShape(Circle())
                         }
                         .accessibilityLabel("Wrong")
                         .accessibilityHint("Mark your answer as being incorrect")
-
+                        
                         Spacer()
-
+                        
                         Button {
                             withAnimation {
-                                removeCard(at: cards.count - 1, reinsert: false)
+                                removeCard(at: activeCards.count - 1, reinsert: false)
                             }
                         } label: {
                             Image(systemName: "checkmark.circle")
                                 .padding()
                                 .background(.black.opacity(0.7))
-                                .clipShape(.circle)
+                                .clipShape(Circle())
                         }
                         .accessibilityLabel("Correct")
                         .accessibilityHint("Mark your answer as being correct")
@@ -122,16 +128,13 @@ struct ContentView: View {
         }
         .onReceive(timer) { _ in
             guard isActive else { return }
-
             if timeRemaining > 0 {
                 timeRemaining -= 1
             }
         }
         .onChange(of: scenePhase) { _, newPhase in
-            if newPhase == .active {
-                if cards.isEmpty == false {
-                    isActive = true
-                }
+            if newPhase == .active, !activeCards.isEmpty {
+                isActive = true
             } else {
                 isActive = false
             }
@@ -139,32 +142,34 @@ struct ContentView: View {
         .sheet(isPresented: $showingEditScreen, onDismiss: resetCards, content: EditCards.init)
         .onAppear(perform: resetCards)
     }
-
+    
+    /// Если reinsert == true – карточку «отправляем» в конец стопки (меняем order),
+    /// иначе отмечаем её как неактивную (isActive = false), чтобы она не отображалась в игре.
     func removeCard(at index: Int, reinsert: Bool) {
-        guard index >= 0 else { return }
-
+        guard index >= 0, index < activeCards.count else { return }
+        let card = activeCards[index]
         if reinsert {
-            cards.move(fromOffsets: IndexSet(integer: index), toOffset: 0)
+            let newOrder = (activeCards.first?.order ?? 0) - 1
+            card.order = newOrder
         } else {
-            cards.remove(at: index)
+            card.isActive = false
         }
-
-        if cards.isEmpty {
+        try? modelContext.save()
+        
+        if activeCards.isEmpty {
             isActive = false
         }
     }
-
+    
+    /// Сброс игры: сбрасываем таймер и для всех карточек (включая неактивные) устанавливаем isActive в true.
     func resetCards() {
         timeRemaining = 100
         isActive = true
-        loadData()
-    }
-
-    func loadData() {
-        if let data = UserDefaults.standard.data(forKey: "Cards") {
-            if let decoded = try? JSONDecoder().decode([Card].self, from: data) {
-                cards = decoded
+        if let allCards: [Card] = try? modelContext.fetch(FetchDescriptor<Card>()) {
+            for card in allCards {
+                card.isActive = true
             }
+            try? modelContext.save()
         }
     }
 }
@@ -172,3 +177,5 @@ struct ContentView: View {
 #Preview {
     ContentView()
 }
+
+
