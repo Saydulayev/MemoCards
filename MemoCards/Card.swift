@@ -8,13 +8,15 @@
 import SwiftData
 import Foundation
 
+/// The Card model represents a flashcard used in the game.
 @Model
 final class Card: Identifiable, Hashable {
     var id: UUID = UUID()
     var prompt: String
     var answer: String
+    /// Order is used to arrange the cards in the stack.
     var order: Int = 0
-    /// Флаг, показывающий, активна ли карточка для игры
+    /// Flag indicating whether the card is active (available in the current game round).
     var isActive: Bool = true
 
     init(prompt: String, answer: String, order: Int = 0) {
@@ -34,5 +36,6 @@ final class Card: Identifiable, Hashable {
         lhs.id == rhs.id
     }
 }
+
 
 

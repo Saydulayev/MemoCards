@@ -8,6 +8,7 @@
 
 import SwiftUI
 
+/// Extension to adjust the fill color of shapes based on horizontal offset.
 extension Shape {
     func fill(using offset: CGSize) -> some View {
         if offset.width == 0 {
@@ -20,16 +21,20 @@ extension Shape {
     }
 }
 
+/// The view for displaying an individual flashcard.
 struct CardView: View {
     @Environment(\.accessibilityDifferentiateWithoutColor) var accessibilityDifferentiateWithoutColor
     @Environment(\.accessibilityVoiceOverEnabled) var accessibilityVoiceOverEnabled
     let card: Card
+    /// The removal closure is triggered when the card is swiped sufficiently.
     var removal: ((Bool) -> Void)? = nil
+    
     @State private var isShowingAnswer = false
     @State private var offset = CGSize.zero
 
     var body: some View {
         ZStack {
+            // Background with dynamic color and opacity based on swipe offset.
             RoundedRectangle(cornerRadius: 25)
                 .fill(
                     accessibilityDifferentiateWithoutColor
@@ -46,6 +51,7 @@ struct CardView: View {
                 )
                 .shadow(radius: 10)
 
+            // Display prompt and answer (if toggled).
             VStack {
                 if accessibilityVoiceOverEnabled {
                     Text(isShowingAnswer ? card.answer : card.prompt)
@@ -76,6 +82,7 @@ struct CardView: View {
                     offset = gesture.translation
                 }
                 .onEnded { _ in
+                    // Reset offset if swipe is not significant
                     if abs(offset.width) < 100 {
                         withAnimation {
                             offset = .zero
@@ -91,6 +98,7 @@ struct CardView: View {
                 }
         )
         .onTapGesture {
+            // Toggle between showing the prompt and answer.
             isShowingAnswer.toggle()
         }
         .animation(.bouncy, value: offset)
@@ -100,5 +108,6 @@ struct CardView: View {
 #Preview {
     CardView(card: .example)
 }
+
 
 

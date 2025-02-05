@@ -8,9 +8,11 @@
 import SwiftUI
 import SwiftData
 
+/// View for editing flashcards: adding, listing, and deleting cards.
 struct EditCards: View {
     @Environment(\.dismiss) var dismiss
     @Environment(\.modelContext) private var modelContext
+    /// Query to fetch all cards sorted by order.
     @Query(sort: \Card.order, order: .forward)
     var cards: [Card]
     
@@ -27,7 +29,8 @@ struct EditCards: View {
                 }
                 
                 Section {
-                    ForEach(Array(cards.enumerated()), id: \.element) { index, card in
+                    // Use card.id as identifier for stable list rendering.
+                    ForEach(cards, id: \.id) { card in
                         VStack(alignment: .leading) {
                             Text(card.prompt)
                                 .font(.headline)
@@ -52,6 +55,7 @@ struct EditCards: View {
         dismiss()
     }
     
+    /// Adds a new card with a calculated order and marks it as active.
     func addCard() {
         let trimmedPrompt = newPrompt.trimmingCharacters(in: .whitespaces)
         let trimmedAnswer = newAnswer.trimmingCharacters(in: .whitespaces)
@@ -61,23 +65,34 @@ struct EditCards: View {
         let card = Card(prompt: trimmedPrompt, answer: trimmedAnswer, order: newOrder)
         card.isActive = true
         modelContext.insert(card)
-        try? modelContext.save()
+        saveContext()
         
         newPrompt = ""
         newAnswer = ""
     }
     
+    /// Removes the selected cards from the model context.
     func removeCards(at offsets: IndexSet) {
         for index in offsets {
             let card = cards[index]
             modelContext.delete(card)
         }
-        try? modelContext.save()
+        saveContext()
+    }
+    
+    /// Helper function to save changes in the model context.
+    private func saveContext() {
+        do {
+            try modelContext.save()
+        } catch {
+            print("Error saving modelContext in EditCards: \(error.localizedDescription)")
+        }
     }
 }
 
 #Preview {
     EditCards()
 }
+
 
 
